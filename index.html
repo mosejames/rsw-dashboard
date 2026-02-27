@@ -101,7 +101,6 @@
             <div class="kpi red"><div class="kpi-label">Under $10K Threshold</div><div class="kpi-value">99.3%</div><div class="kpi-sub">150 of 151 invoices</div></div>
             <div class="kpi orange"><div class="kpi-label">$9,000&ndash;$9,999 Range</div><div class="kpi-value">27</div><div class="kpi-sub">$265,877 just below the line</div></div>
             <div class="kpi red"><div class="kpi-label">Same-Day Multi-Invoice</div><div class="kpi-value">32 days</div><div class="kpi-sub">Multiple invoices on same date</div></div>
-            <div class="kpi orange"><div class="kpi-label">Council Votes Required</div><div class="kpi-value">1</div><div class="kpi-sub">Out of 151 invoices total</div></div>
         </section>
     </div>
 
@@ -237,6 +236,7 @@
                     <th onclick="sortTable('category')">Category</th>
                     <th onclick="sortTable('fiscal_year')">FY</th>
                     <th onclick="sortTable('amount')" class="amt">Amount</th>
+                    <th onclick="sortTable('below_10k')" class="amt">Below $10K By</th>
                 </tr></thead>
                 <tbody id="tableBody"></tbody></table>
             </div>
@@ -365,15 +365,24 @@ function applyFilters() {
 }
 
 function updateTable() {
-    const sorted = [...filtered].sort((a,b) => { let va=a[sortCol],vb=b[sortCol]; if(sortCol==='amount') return (va-vb)*sortDir; if(typeof va==='string') return va.localeCompare(vb)*sortDir; return (va-vb)*sortDir; });
+    const withGap = filtered.map(d => ({...d, below_10k: d.amount < 10000 ? 10000 - d.amount : 0}));
+    const sorted = withGap.sort((a,b) => {
+        let va=a[sortCol], vb=b[sortCol];
+        if(sortCol==='amount' || sortCol==='below_10k') return (va-vb)*sortDir;
+        if(sortCol==='invoice_num') return (parseInt(va)-parseInt(vb))*sortDir;
+        if(typeof va==='string') return va.localeCompare(vb)*sortDir;
+        return (va-vb)*sortDir;
+    });
     document.getElementById('tableCount').textContent = '('+sorted.length+' records, '+fmt(sorted.reduce((s,d)=>s+d.amount,0))+')';
     document.getElementById('tableBody').innerHTML = sorted.map(d => {
         const cls = (d.amount>=9000&&d.amount<10000) ? ' class="hot"' : '';
-        return '<tr'+cls+'><td>'+d.invoice_num+'</td><td>'+d.invoice_date+'</td><td>'+d.description.substring(0,55)+'</td><td>'+d.category+'</td><td>'+d.fiscal_year+'</td><td class="amt">'+fmt(d.amount)+'</td></tr>';
+        const gap = d.amount < 10000 ? '$'+Math.round(10000-d.amount).toLocaleString() : '--';
+        const gapStyle = (d.amount>=9000&&d.amount<10000) ? ' style="color:#cc0000;font-weight:700"' : '';
+        return '<tr'+cls+'><td>'+d.invoice_num+'</td><td>'+d.invoice_date+'</td><td>'+d.description.substring(0,55)+'</td><td>'+d.category+'</td><td>'+d.fiscal_year+'</td><td class="amt">'+fmt(d.amount)+'</td><td class="amt"'+gapStyle+'>'+gap+'</td></tr>';
     }).join('');
 }
 
-function sortTable(col) { if(sortCol===col) sortDir*=-1; else { sortCol=col; sortDir=col==='amount'?-1:1; } updateTable(); }
+function sortTable(col) { if(sortCol===col) sortDir*=-1; else { sortCol=col; sortDir=(col==='amount'||col==='below_10k')?-1:1; } updateTable(); }
 
 applyFilters();
 </script>
